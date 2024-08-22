@@ -12,6 +12,7 @@
 	import Button from './ui/button/button.svelte';
 	import * as Table from './ui/table';
 	import Toggle from './ui/toggle/toggle.svelte';
+	import { portfolio, markets } from '$lib/api';
 
 	export let market: websocket_api.IMarket;
 	let showChart = true;
@@ -60,7 +61,107 @@
 	const cancelOrder = (id: number) => {
 		sendClientMessage({ cancelOrder: { id } });
 	};
+
+	var important_markets = [34, 35, 36, 37, 38, 39];
+	let names = {
+		34: "A", 35: "B", 36: "C",
+		37: "etf", 38: "bond", 39: "dice"};
+
+		let mins_maxes = {
+		34: [0, 240], 35: [0, 240], 36: [0, 240],
+		37: [1, 20], 38: [1, 20], 39: [0, 360]
+	};
+	/*
+	var fairs = new Map(); // [fair, interval, time set]
+	var important_markets = [34, 35, 36, 37, 38, 39];
+	let mins_maxes = {
+		34: [0, 20], 35: [1, 20], 36: [4, 80],
+		37: [1, 20], 38: [1, 20], 39: [4, 80]
+	};
+	let names = {31: "min", 32: "max", 33: "sum"};
+	for (let i = 0; i < important_markets.length; i++) {
+		let market = important_markets[i];
+		fairs.set(market, [mins_maxes[market][0], mins_maxes[market][1], new Date()]);
+	}
+	*/
+
+	function getMarket(id: number): websocket_api.Portfolio.IMarketExposure | null {
+		let exposures = ($portfolio?.marketExposures ?? []);
+		for (let i = 0; i < exposures.length; i++) {
+			let exposure = exposures[i];
+			if (exposure.marketId == id) {
+				return exposure;
+			}
+		}
+		return null;
+	}
+
+		let trades = market.trades ?? [];
+		let pos_exp = new Map();
+		let neg_exp = new Map();
+		let traders = new Set();
+		trades.forEach(trade => {
+			if (!pos_exp.get(trade.buyerId)) {
+				pos_exp.set(trade.buyerId, 0);
+			}
+			if (!neg_exp.get(trade.sellerId)) {
+				neg_exp.set(trade.sellerId, 0);
+			}
+
+			pos_exp.set(trade.buyerId, pos_exp.get(trade.buyerId) + parseFloat(trade.size ?? "0")*100);
+			neg_exp.set(trade.sellerId, neg_exp.get(trade.sellerId) + parseFloat(trade.size ?? "0")*100);
+			traders.add(trade.buyerId);
+			traders.add(trade.sellerId);
+		});
+		let sorted_traders = Array.from(traders);
+		sorted_traders.sort((a, b) => -(pos_exp.get(a) || 0) - (neg_exp.get(a) || 0) + (pos_exp.get(b) || 0) + (neg_exp.get(b) || 0));
 </script>
+
+<table style="width: 500px;">
+	<caption> OUR MARKETS </caption>
+	<thead>
+	<th>
+		Market
+	</th>
+	<th>
+		Us
+	</th>
+	<th>
+		Fair
+	</th>
+	<th>
+		Interval
+	</th>
+	<th> min </th>
+	<th> max </th>
+</thead>
+<tbody>
+{#each important_markets as marketId}
+{@const exposure = getMarket(marketId)}
+<tr>
+	<td style="text-align: center;"> <a color="blue" href="/market/{marketId}"> {names[marketId]} </a> </td>
+	<td style="text-align: center;"> {exposure ? exposure.position : 0} </td>
+</tr>
+{/each}
+</tbody>
+</table>
+
+<table width=200>
+	<thead>
+		<th> user </th>
+		<th> bought </th>
+		<th> sold </th>
+	</thead>
+	<tbody>
+	{#each sorted_traders as trader}
+	<tr>
+		<td> {$users?.get(trader).name} </td>
+		<td> {((pos_exp.get(trader) ?? 0) / 100).toFixed(2)} </td>
+		<td> {((neg_exp.get(trader) ?? 0) / 100).toFixed(2)} </td>
+	</tr>
+	{/each}
+	</tbody>
+</table>
 
 <div class="mb-4 flex justify-between">
 	<div class="mb-4">
@@ -68,8 +169,11 @@
 		<p class="mt-2 text-xl">{market.description}</p>
 		<p class="mt-2 text-sm italic">
 			Created by {market.ownerId ? $users?.get(market.ownerId)?.name : ''}
+
 		</p>
+		<p> Min: {market.minSettlement}. Max: {market.maxSettlement} </p>
 	</div>
+	<!--
 	<div>
 		<Table.Root class="w-auto text-center font-bold">
 			<Table.Header>
@@ -108,6 +212,7 @@
 			</Table.Body>
 		</Table.Root>
 	</div>
+-->	
 </div>
 
 {#if market.closed}
@@ -115,43 +220,6 @@
 {/if}
 <div class="flex justify-between gap-8">
 	<div class="flex flex-col gap-4">
-		{#if showChart}
-			<PriceChart
-				{trades}
-				minSettlement={market.minSettlement}
-				maxSettlement={market.maxSettlement}
-			/>
-		{/if}
-		{#if displayTransactionId !== undefined}
-			<div class="mx-4">
-				<h2 class="mb-4 ml-2 text-lg">Time Slider</h2>
-				<Slider
-					class="mx-4"
-					bind:value={displayTransactionIdBindable}
-					max={maxTransactionId}
-					min={market.transactionId}
-					step={1}
-				/>
-			</div>
-		{/if}
-		{#if market.open || displayTransactionId !== undefined}
-			<Table.Root class="font-bold">
-				<Table.Header>
-					<Table.Row>
-						<Table.Head class="text-center">Last price</Table.Head>
-						<Table.Head class="text-center">Mid price</Table.Head>
-						<Table.Head class="text-center">Your Position</Table.Head>
-					</Table.Row>
-				</Table.Header>
-				<Table.Body class="text-center">
-					<Table.Row>
-						<Table.Cell class="pt-2">{lastPrice}</Table.Cell>
-						<Table.Cell class="pt-2">{midPrice}</Table.Cell>
-						<Table.Cell class="pt-2">{Number(position.toFixed(4))}</Table.Cell>
-					</Table.Row>
-				</Table.Body>
-			</Table.Root>
-		{/if}
 		<div
 			class={cn(
 				'flex justify-between gap-8 text-center',
@@ -191,11 +259,46 @@
 			</div>
 			<div>
 				<h2 class="text-center text-lg font-bold">Orders</h2>
+				<button style="margin-right: 150px;" on:click={event => {
+					let max_bid_price = Math.round(market.minSettlement * 100);
+					if (bids && bids.length > 0) {
+						max_bid_price = Math.max(...bids.map(order => Math.round(parseFloat(order.price ?? "0")*100)));
+					}
+					let our_bid_price = max_bid_price + 1;
+					let our_bid_string = (our_bid_price / 100).toFixed(2);
+					// console.log(max_bid_price, our_bid_price, (our_bid_price / 100).toFixed(2));
+
+					// TOCONSIDER: CANCEL OTHER BIDS WE HAVE?
+
+					console.log("OWNERS", bids.map(bid => bid.ownerId), $actingAs);
+					bids.filter(bid => bid.ownerId == $actingAs).map(bid => bid.id).forEach(bid_id => {
+						sendClientMessage({ cancelOrder: { id: bid_id } });
+					})
+
+					sendClientMessage({ createOrder: { marketId: market.id, size: "1", side: websocket_api.Side.BID, price: our_bid_string} });
+				}}> Bid more </button>
+				<button on:click={event => {
+					console.log(market);
+					let min_offer_price = Math.round(market.maxSettlement * 100);
+					if (offers && offers.length > 0) {
+						min_offer_price = Math.min(...offers.map(order => Math.round(parseFloat(order.price ?? "0")*100)));
+					}
+					let our_offer_price = min_offer_price - 1;
+					let our_offer_string = (our_offer_price / 100).toFixed(2);
+
+					offers.filter(offer => offer.ownerId == $actingAs).map(offer => offer.id).forEach(offer_id => {
+						sendClientMessage({ cancelOrder: { id: offer_id } });
+					})
+
+					// TOCONSIDER: CANCEL OTHER OFFERS WE HAVE?
+
+					sendClientMessage({ createOrder: { marketId: market.id, size: "1", side: websocket_api.Side.OFFER, price: our_offer_string} });
+				}}> Offer for less </button>
 				<div class="flex gap-4">
 					<Table.Root>
 						<Table.Header>
 							<Table.Row>
-								<Table.Head></Table.Head>
+								<Table.Head class="text0center">Take</Table.Head>
 								<Table.Head class="text-center">Owner</Table.Head>
 								<Table.Head class="text-center">Size</Table.Head>
 								<Table.Head class="text-center">Bid</Table.Head>
@@ -216,6 +319,13 @@
 												class="h-6 w-6 rounded-2xl px-2"
 												on:click={() => cancelOrder(order.id)}>X</Button
 											>
+										{:else}
+										<Table.Cell class="px-1 py-0">
+											<button on:click={event => {
+												// price, size, side, marketid
+												sendClientMessage({ createOrder: { marketId: order.marketId, size: order.size, side: websocket_api.Side.OFFER, price: order.price } });
+											}}>Take</button>
+										</Table.Cell>
 										{/if}
 									</Table.Cell>
 									<Table.Cell class="px-1 py-0">
@@ -237,6 +347,7 @@
 								<Table.Head class="text-center">Offer</Table.Head>
 								<Table.Head class="text-center">Size</Table.Head>
 								<Table.Head class="text-center">Owner</Table.Head>
+								<Table.Head class="text0center">Take</Table.Head>
 							</Table.Row>
 						</Table.Header>
 						<Table.Body>
@@ -263,6 +374,13 @@
 												class="h-6 w-6 rounded-2xl px-2"
 												on:click={() => cancelOrder(order.id)}>X</Button
 											>
+										{:else}
+										<Table.Cell class="px-1 py-0">
+											<button on:click={event => {
+												// price, size, side, marketid
+												sendClientMessage({ createOrder: { marketId: order.marketId, size: order.size, side: websocket_api.Side.BID, price: order.price } });
+											}}>Take</button>
+										</Table.Cell>
 										{/if}
 									</Table.Cell>
 								</Table.Row>
@@ -272,6 +390,43 @@
 				</div>
 			</div>
 		</div>
+		{#if showChart}
+		<PriceChart
+			{trades}
+			minSettlement={market.minSettlement}
+			maxSettlement={market.maxSettlement}
+		/>
+	{/if}
+	{#if displayTransactionId !== undefined}
+		<div class="mx-4">
+			<h2 class="mb-4 ml-2 text-lg">Time Slider</h2>
+			<Slider
+				class="mx-4"
+				bind:value={displayTransactionIdBindable}
+				max={maxTransactionId}
+				min={market.transactionId}
+				step={1}
+			/>
+		</div>
+	{/if}
+	{#if market.open || displayTransactionId !== undefined}
+		<Table.Root class="font-bold">
+			<Table.Header>
+				<Table.Row>
+					<Table.Head class="text-center">Last price</Table.Head>
+					<Table.Head class="text-center">Mid price</Table.Head>
+					<Table.Head class="text-center">Your Position</Table.Head>
+				</Table.Row>
+			</Table.Header>
+			<Table.Body class="text-center">
+				<Table.Row>
+					<Table.Cell class="pt-2">{lastPrice}</Table.Cell>
+					<Table.Cell class="pt-2">{midPrice}</Table.Cell>
+					<Table.Cell class="pt-2">{Number(position.toFixed(4))}</Table.Cell>
+				</Table.Row>
+			</Table.Body>
+		</Table.Root>
+	{/if}
 	</div>
 	{#if market.open && displayTransactionId === undefined}
 		<div>
