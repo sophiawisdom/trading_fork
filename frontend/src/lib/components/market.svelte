@@ -114,6 +114,9 @@
 		});
 		let sorted_traders = Array.from(traders);
 		sorted_traders.sort((a, b) => -(pos_exp.get(a) || 0) - (neg_exp.get(a) || 0) + (pos_exp.get(b) || 0) + (neg_exp.get(b) || 0));
+	const getMaybeHiddenUserId = (id: string | null | undefined) => {
+		return id === 'hidden' ? 'Hidden' : $users.get(id || '')?.name?.split(' ')[0];
+	};
 </script>
 <table style="width: 500px;">
 	<caption> OUR POSITIONS </caption>
@@ -411,6 +414,7 @@
 				displayTransactionId !== undefined && 'min-h-screen'
 			)}
 		>
+<<<<<<< HEAD
 	{#if displayTransactionId !== undefined}
 		<div class="mx-4">
 			<h2 class="mb-4 ml-2 text-lg">Time Slider</h2>
@@ -421,6 +425,121 @@
 				min={market.transactionId}
 				step={1}
 			/>
+=======
+			<div>
+				<h2 class="text-center text-lg font-bold">Trades</h2>
+				<Table.Root>
+					<Table.Header>
+						<Table.Row>
+							<Table.Head class="text-center">Buyer</Table.Head>
+							<Table.Head class="text-center">Seller</Table.Head>
+							<Table.Head class="text-center">Price</Table.Head>
+							<Table.Head class="text-center">Size</Table.Head>
+						</Table.Row>
+					</Table.Header>
+					<Table.Body>
+						{#each trades.toReversed() as trade (trade.id)}
+							<Table.Row class="h-8 even:bg-accent/35">
+								<Table.Cell class="px-1 py-0">
+									{getMaybeHiddenUserId(trade.buyerId)}
+								</Table.Cell>
+								<Table.Cell class="px-1 py-0">
+									{getMaybeHiddenUserId(trade.sellerId)}
+								</Table.Cell>
+								<Table.Cell class="px-1 py-0">
+									<FlexNumber value={trade.price || ''} />
+								</Table.Cell>
+								<Table.Cell class="px-1 py-0">
+									<FlexNumber value={trade.size || ''} />
+								</Table.Cell>
+							</Table.Row>
+						{/each}
+					</Table.Body>
+				</Table.Root>
+			</div>
+			<div>
+				<h2 class="text-center text-lg font-bold">Orders</h2>
+				<div class="flex gap-4">
+					<Table.Root>
+						<Table.Header>
+							<Table.Row>
+								<Table.Head></Table.Head>
+								<Table.Head class="text-center">Owner</Table.Head>
+								<Table.Head class="text-center">Size</Table.Head>
+								<Table.Head class="text-center">Bid</Table.Head>
+							</Table.Row>
+						</Table.Header>
+						<Table.Body>
+							{#each bids as order (order.id)}
+								<Table.Row
+									class={cn(
+										'h-8 even:bg-accent/35',
+										order.ownerId === $actingAs && 'outline outline-2 outline-primary'
+									)}
+								>
+									<Table.Cell class="px-1 py-0">
+										{#if order.ownerId === $actingAs && displayTransactionId === undefined}
+											<Button
+												variant="inverted"
+												class="h-6 w-6 rounded-2xl px-2"
+												on:click={() => cancelOrder(order.id)}>X</Button
+											>
+										{/if}
+									</Table.Cell>
+									<Table.Cell class="px-1 py-0">
+										{getMaybeHiddenUserId(order.ownerId)}
+									</Table.Cell>
+									<Table.Cell class="px-1 py-0">
+										<FlexNumber value={order.size || ''} />
+									</Table.Cell>
+									<Table.Cell class="px-1 py-0">
+										<FlexNumber value={order.price || ''} />
+									</Table.Cell>
+								</Table.Row>
+							{/each}
+						</Table.Body>
+					</Table.Root>
+					<Table.Root>
+						<Table.Header>
+							<Table.Row>
+								<Table.Head class="text-center">Offer</Table.Head>
+								<Table.Head class="text-center">Size</Table.Head>
+								<Table.Head class="text-center">Owner</Table.Head>
+							</Table.Row>
+						</Table.Header>
+						<Table.Body>
+							{#each offers as order (order.id)}
+								<Table.Row
+									class={cn(
+										'h-8 even:bg-accent/35',
+										order.ownerId === $actingAs && 'outline outline-2 outline-primary'
+									)}
+								>
+									<Table.Cell class="px-1 py-0">
+										<FlexNumber value={order.price || ''} />
+									</Table.Cell>
+									<Table.Cell class="px-1 py-0">
+										<FlexNumber value={order.size || ''} />
+									</Table.Cell>
+									<Table.Cell class="px-1 py-0">
+										{getMaybeHiddenUserId(order.ownerId)}
+									</Table.Cell>
+									<Table.Cell class="px-1 py-0">
+										{#if order.ownerId === $actingAs && displayTransactionId === undefined}
+											<Button
+												variant="inverted"
+												class="h-6 w-6 rounded-2xl px-2"
+												on:click={() => cancelOrder(order.id)}>X</Button
+											>
+										{/if}
+									</Table.Cell>
+								</Table.Row>
+							{/each}
+						</Table.Body>
+					</Table.Root>
+				</div>
+			</div>
+>>>>>>> 932c2482758db2c31330b8687dcad0efa6817f22
 		</div>
 	{/if}
 	{#if market.open || displayTransactionId !== undefined}
