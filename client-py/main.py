@@ -7,11 +7,12 @@ from typing import Awaitable, Optional
 import typer
 import websockets
 from dotenv import load_dotenv
+from http_api.client import AuthenticatedClient
 from market_maker_bot import market_maker_bot
 from naive_bot import naive_bot
-from trading_client import TradingClient
 from typing_extensions import Annotated, Callable
-from websocket_api import ActAs, Authenticate, ClientMessage
+from websocket_api import Authenticate
+from websocket_client import WebsocketClient
 
 logging.basicConfig(level=logging.INFO)
 load_dotenv()
@@ -21,7 +22,8 @@ app = typer.Typer()
 
 @dataclass
 class Options:
-    api_url: str
+    websocket_url: str
+    http_url: str
     jwt: str
     id_jwt: str
     act_as: str
@@ -32,25 +34,35 @@ OPTIONS: Options
 
 @app.callback()
 def set_options(
-    api_url: Annotated[str, typer.Option(envvar="API_URL")],
     jwt: Annotated[str, typer.Option(envvar="JWT")],
     id_jwt: Annotated[str, typer.Option(envvar="ID_JWT")],
-    act_as: Annotated[str, typer.Option(envvar="ACT_AS")],
+    websocket_url: Annotated[str, typer.Option(envvar="WEBSOCKET_URL")],
+    http_url: Annotated[str, typer.Option(envvar="HTTP_URL")],
+    act_as: Annotated[str, typer.Option(envvar="ACT_AS")] = "",
 ):
     global OPTIONS
-    OPTIONS = Options(api_url=api_url, jwt=jwt, id_jwt=id_jwt, act_as=act_as)
+    OPTIONS = Options(
+        websocket_url=websocket_url,
+        http_url=http_url,
+        jwt=jwt,
+        id_jwt=id_jwt,
+        act_as=act_as,
+    )
 
 
-async def entrypoint(bot: Callable[[TradingClient], Awaitable]):
-    async with websockets.connect(OPTIONS.api_url, ping_interval=None) as ws:
-        client = TradingClient(ws=ws)
-        await client.init(Authenticate(jwt=OPTIONS.jwt, id_jwt=OPTIONS.id_jwt))
+async def entrypoint(bot: Callable[[WebsocketClient, AuthenticatedClient], Awaitable]):
+    async with websockets.connect(
+        OPTIONS.websocket_url, ping_interval=None
+    ) as ws, AuthenticatedClient(OPTIONS.http_url, OPTIONS.jwt) as http_client:
+        websocket_client = WebsocketClient(ws=ws)
+        await websocket_client.init(
+            Authenticate(jwt=OPTIONS.jwt, id_jwt=OPTIONS.id_jwt)
+        )
 
         if OPTIONS.act_as:
-            act_as_msg = ClientMessage(act_as=ActAs(user_id=OPTIONS.act_as))
-            await client.send(act_as_msg)
+            await websocket_client.act_as(OPTIONS.act_as)
 
-        await bot(client)
+        await bot(websocket_client, http_client)
 
 
 @app.command()
@@ -63,9 +75,10 @@ def run_naive(
     loss_per_trade_dec = Decimal(loss_per_trade)
     max_size_dec = Decimal(max_size)
 
-    async def bot(client: TradingClient):
+    async def bot(websocket_client: WebsocketClient, http_client: AuthenticatedClient):
         await naive_bot(
-            client,
+            websocket_client,
+            http_client,
             market_id=market_id,
             loss_per_trade=loss_per_trade_dec,
             max_size=max_size_dec,
@@ -81,21 +94,22 @@ def run_market_maker(
     prior: Optional[float] = None,
     spread: float = 3.0,
     size: float = 1.0,
-    fade: float = 1.0,
+    fade_per_order: float = 1.0,
 ):
     prior_dec = Decimal(prior) if prior is not None else None
     spread_dec = Decimal(spread)
     size_dec = Decimal(size)
-    fade_dec = Decimal(fade)
+    fade_per_order_dec = Decimal(fade_per_order)
 
-    async def bot(client: TradingClient):
+    async def bot(websocket_client: WebsocketClient, http_client: AuthenticatedClient):
         await market_maker_bot(
-            client,
+            websocket_client,
+            http_client,
             market_id=market_id,
             prior=prior_dec,
             spread=spread_dec,
             size=size_dec,
-            fade=fade_dec,
+            fade_per_order=fade_per_order_dec,
         )
 
     asyncio.run(entrypoint(bot))
