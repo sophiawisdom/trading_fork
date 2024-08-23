@@ -61,15 +61,10 @@
 		sendClientMessage({ cancelOrder: { id } });
 	};
 
-	var important_markets = [34, 35, 36, 37, 38, 39];
+	var important_markets = [41, 42, 43, 44, 45, 46];
 	let names = {
-		34: "A", 35: "B", 36: "C",
-		37: "etf", 38: "bond", 39: "dice"};
-
-		let mins_maxes = {
-		34: [0, 240], 35: [0, 240], 36: [0, 240],
-		37: [1, 20], 38: [1, 20], 39: [0, 360]
-	};
+		41: "A", 42: "B", 43: "C",
+		44: "etf", 45: "dice", 46: "bond"};
 	/*
 	var fairs = new Map(); // [fair, interval, time set]
 	var important_markets = [34, 35, 36, 37, 38, 39];
@@ -141,6 +136,12 @@
 		<h1 class="text-2xl font-bold">{market.name}.</h1>
 		<p> Min: {market.minSettlement}. Max: {market.maxSettlement} </p>
 	</div>
+
+	<CreateOrder
+	marketId={market.id}
+	minSettlement={market.minSettlement}
+	maxSettlement={market.maxSettlement}
+/>
 
 	{#if false}
 	<table width=200>
@@ -239,6 +240,8 @@
 	</div>
 	<div>
 		<h2 class="text-center text-lg font-bold">Orders</h2>
+		<button style="font-size:30px;" on:click={() => sendClientMessage({ out: { marketId: market.id } })}> CLEAR </button>
+
 		<button style="margin-right: 150px;" on:click={event => {
 			let max_bid_price = Math.round(market.minSettlement * 100);
 			if (bids && bids.length > 0) {
@@ -255,7 +258,7 @@
 				sendClientMessage({ cancelOrder: { id: bid_id } });
 			})
 
-			sendClientMessage({ createOrder: { marketId: market.id, size: "1", side: websocket_api.Side.BID, price: our_bid_string} });
+			sendClientMessage({ createOrder: { marketId: market.id, size: "0.1", side: websocket_api.Side.BID, price: our_bid_string} });
 		}}> Bid more </button>
 		<button on:click={event => {
 			console.log(market);
@@ -272,14 +275,13 @@
 
 			// TOCONSIDER: CANCEL OTHER OFFERS WE HAVE?
 
-			sendClientMessage({ createOrder: { marketId: market.id, size: "1", side: websocket_api.Side.OFFER, price: our_offer_string} });
+			sendClientMessage({ createOrder: { marketId: market.id, size: "0.1", side: websocket_api.Side.OFFER, price: our_offer_string} });
 		}}> Offer for less </button>
 		<div class="flex gap-4">
 			<Table.Root>
 				<Table.Header>
 					<Table.Row>
 						<Table.Head class="text0center">Take</Table.Head>
-						<Table.Head class="text-center">Owner</Table.Head>
 						<Table.Head class="text-center">Size</Table.Head>
 						<Table.Head class="text-center">Bid</Table.Head>
 					</Table.Row>
@@ -309,9 +311,6 @@
 								{/if}
 							</Table.Cell>
 							<Table.Cell class="px-1 py-0">
-								{$users.get(order.ownerId || '')?.name?.split(' ')[0]}
-							</Table.Cell>
-							<Table.Cell class="px-1 py-0">
 								<FlexNumber value={order.size || ''} />
 							</Table.Cell>
 							<Table.Cell class="px-1 py-0">
@@ -326,7 +325,6 @@
 					<Table.Row>
 						<Table.Head class="text-center">Offer</Table.Head>
 						<Table.Head class="text-center">Size</Table.Head>
-						<Table.Head class="text-center">Owner</Table.Head>
 						<Table.Head class="text0center">Take</Table.Head>
 					</Table.Row>
 				</Table.Header>
@@ -343,9 +341,6 @@
 							</Table.Cell>
 							<Table.Cell class="px-1 py-0">
 								<FlexNumber value={order.size || ''} />
-							</Table.Cell>
-							<Table.Cell class="px-1 py-0">
-								{$users.get(order.ownerId || '')?.name?.split(' ')[0]}
 							</Table.Cell>
 							<Table.Cell class="px-1 py-0">
 								{#if order.ownerId === $actingAs && displayTransactionId === undefined}
@@ -371,7 +366,7 @@
 	</div>
 </div>
 	<div class="flex flex-col gap-4">
-		{#if showChart}
+		{#if false}
 			<PriceChart
 				{trades}
 				minSettlement={market.minSettlement}
@@ -390,7 +385,7 @@
 				/>
 			</div>
 		{/if}
-		{#if market.open || displayTransactionId !== undefined}
+		{#if false && market.open || displayTransactionId !== undefined} 
 			<Table.Root class="font-bold">
 				<Table.Header>
 					<Table.Row>
@@ -414,7 +409,6 @@
 				displayTransactionId !== undefined && 'min-h-screen'
 			)}
 		>
-<<<<<<< HEAD
 	{#if displayTransactionId !== undefined}
 		<div class="mx-4">
 			<h2 class="mb-4 ml-2 text-lg">Time Slider</h2>
@@ -425,124 +419,9 @@
 				min={market.transactionId}
 				step={1}
 			/>
-=======
-			<div>
-				<h2 class="text-center text-lg font-bold">Trades</h2>
-				<Table.Root>
-					<Table.Header>
-						<Table.Row>
-							<Table.Head class="text-center">Buyer</Table.Head>
-							<Table.Head class="text-center">Seller</Table.Head>
-							<Table.Head class="text-center">Price</Table.Head>
-							<Table.Head class="text-center">Size</Table.Head>
-						</Table.Row>
-					</Table.Header>
-					<Table.Body>
-						{#each trades.toReversed() as trade (trade.id)}
-							<Table.Row class="h-8 even:bg-accent/35">
-								<Table.Cell class="px-1 py-0">
-									{getMaybeHiddenUserId(trade.buyerId)}
-								</Table.Cell>
-								<Table.Cell class="px-1 py-0">
-									{getMaybeHiddenUserId(trade.sellerId)}
-								</Table.Cell>
-								<Table.Cell class="px-1 py-0">
-									<FlexNumber value={trade.price || ''} />
-								</Table.Cell>
-								<Table.Cell class="px-1 py-0">
-									<FlexNumber value={trade.size || ''} />
-								</Table.Cell>
-							</Table.Row>
-						{/each}
-					</Table.Body>
-				</Table.Root>
-			</div>
-			<div>
-				<h2 class="text-center text-lg font-bold">Orders</h2>
-				<div class="flex gap-4">
-					<Table.Root>
-						<Table.Header>
-							<Table.Row>
-								<Table.Head></Table.Head>
-								<Table.Head class="text-center">Owner</Table.Head>
-								<Table.Head class="text-center">Size</Table.Head>
-								<Table.Head class="text-center">Bid</Table.Head>
-							</Table.Row>
-						</Table.Header>
-						<Table.Body>
-							{#each bids as order (order.id)}
-								<Table.Row
-									class={cn(
-										'h-8 even:bg-accent/35',
-										order.ownerId === $actingAs && 'outline outline-2 outline-primary'
-									)}
-								>
-									<Table.Cell class="px-1 py-0">
-										{#if order.ownerId === $actingAs && displayTransactionId === undefined}
-											<Button
-												variant="inverted"
-												class="h-6 w-6 rounded-2xl px-2"
-												on:click={() => cancelOrder(order.id)}>X</Button
-											>
-										{/if}
-									</Table.Cell>
-									<Table.Cell class="px-1 py-0">
-										{getMaybeHiddenUserId(order.ownerId)}
-									</Table.Cell>
-									<Table.Cell class="px-1 py-0">
-										<FlexNumber value={order.size || ''} />
-									</Table.Cell>
-									<Table.Cell class="px-1 py-0">
-										<FlexNumber value={order.price || ''} />
-									</Table.Cell>
-								</Table.Row>
-							{/each}
-						</Table.Body>
-					</Table.Root>
-					<Table.Root>
-						<Table.Header>
-							<Table.Row>
-								<Table.Head class="text-center">Offer</Table.Head>
-								<Table.Head class="text-center">Size</Table.Head>
-								<Table.Head class="text-center">Owner</Table.Head>
-							</Table.Row>
-						</Table.Header>
-						<Table.Body>
-							{#each offers as order (order.id)}
-								<Table.Row
-									class={cn(
-										'h-8 even:bg-accent/35',
-										order.ownerId === $actingAs && 'outline outline-2 outline-primary'
-									)}
-								>
-									<Table.Cell class="px-1 py-0">
-										<FlexNumber value={order.price || ''} />
-									</Table.Cell>
-									<Table.Cell class="px-1 py-0">
-										<FlexNumber value={order.size || ''} />
-									</Table.Cell>
-									<Table.Cell class="px-1 py-0">
-										{getMaybeHiddenUserId(order.ownerId)}
-									</Table.Cell>
-									<Table.Cell class="px-1 py-0">
-										{#if order.ownerId === $actingAs && displayTransactionId === undefined}
-											<Button
-												variant="inverted"
-												class="h-6 w-6 rounded-2xl px-2"
-												on:click={() => cancelOrder(order.id)}>X</Button
-											>
-										{/if}
-									</Table.Cell>
-								</Table.Row>
-							{/each}
-						</Table.Body>
-					</Table.Root>
-				</div>
-			</div>
->>>>>>> 932c2482758db2c31330b8687dcad0efa6817f22
 		</div>
 	{/if}
-	{#if market.open || displayTransactionId !== undefined}
+	{#if false && market.open || displayTransactionId !== undefined}
 		<Table.Root class="font-bold">
 			<Table.Header>
 				<Table.Row>
@@ -563,11 +442,6 @@
 	</div>
 	{#if market.open && displayTransactionId === undefined}
 		<div>
-			<CreateOrder
-				marketId={market.id}
-				minSettlement={market.minSettlement}
-				maxSettlement={market.maxSettlement}
-			/>
 			<div class="pt-8">
 				<Button
 					variant="inverted"

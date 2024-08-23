@@ -24,6 +24,7 @@
 <ModeWatcher />
 <Toaster closeButton duration={8000} richColors />
 <div class="flex min-h-screen flex-col">
+	{#if true}
 	<header
 		class={cn('sticky border-b-2', $actingAs !== $user?.id ? 'bg-green-700/30' : 'bg-primary/30')}
 	>
@@ -59,13 +60,12 @@
 			</ul>
 		</nav>
 	</header>
+	{/if}
 	<main class="container flex min-h-full flex-grow gap-8">
+		{#if true}
 		<aside class="min-h-full min-w-44 max-w-64 flex-grow border-r-2 pr-8 pt-8">
 			<nav>
 				<ul class="flex min-h-full flex-col gap-4">
-					<li class="order-1 text-lg">
-						<CreateMarket />
-					</li>
 					<li class="order-1 text-lg">Open markets:</li>
 					<div class="order-4 flex-grow"></div>
 					<li class="order-4 text-lg">Closed markets:</li>
@@ -75,6 +75,7 @@
 				</ul>
 			</nav>
 		</aside>
+		{/if}
 		<slot></slot>
 	</main>
 </div>
